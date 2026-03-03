@@ -1,45 +1,45 @@
-name: Laravel Create and Test
+name: Auto Create Laravel Project
 
 on:
+  workflow_dispatch: # Tombol manual di tab Actions
   push:
-    branches: [ "main" ]
-  pull_request:
     branches: [ "main" ]
 
 jobs:
-  build-laravel:
+  generate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # PENTING: Izin agar GitHub bisa menulis ke repo kamu
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
       with:
         php-version: '8.2'
-        extensions: mbstring, dom, curl, libxml, zlib
 
     - name: Create Laravel Project
-      # Kita buat project dengan nama 'temp-app', lalu pindahkan isinya ke folder utama
       run: |
-        composer create-project laravel/laravel temp-app
-        cp -r temp-app/. .
-        rm -rf temp-app
+        # Buat project di folder sementara agar tidak bentrok dengan folder .git
+        composer create-project laravel/laravel temp-laravel
+        
+        # Pindahkan semua file (termasuk yang tersembunyi/dotfiles) ke root repo
+        cp -rn temp-laravel/. .
+        rm -rf temp-laravel
 
-    - name: Copy .env
-      run: php -r "file_exists('.env') || copy('.env.example', '.env');"
-
-    - name: Generate key
-      run: php artisan key:generate
-
-    - name: Create Database
+    - name: Commit and Push Changes
       run: |
-        mkdir -p database
-        touch database/database.sqlite
-
-    - name: Run Tests
-      env:
-        DB_CONNECTION: sqlite
-        DB_DATABASE: database/database.sqlite
-      run: php artisan test
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # Cek apakah ada file baru untuk di-commit
+        if [ -n "$(git status --porcelain)" ]; then
+          git add .
+          git commit -m "Chore: Auto-generate Laravel project structure"
+          git push
+        else
+          echo "No changes to commit"
+        fi
 
